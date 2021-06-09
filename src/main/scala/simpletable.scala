@@ -10,13 +10,8 @@ object SimpleTable:
   def main(as: Array[String]): Unit = 
     println("안녕? 여러분!")
 
-  def test1() = 
+  def pageWithHangul() = 
     val pdoc = PDDocument()
     val p1 = PDPage(PDRectangle.A4)
     pdoc.addPage(p1)
     val cstream = PDPageContentStream(pdoc, p1)
-    val t = Table.builder().
-        addColumnsOfWidth(200, 200).padding(2).
-        addRow(
-            Row.builder()
-        )
