@@ -10,12 +10,17 @@ import cats.effect.unsafe.implicits._
 import org.apache.pdfbox.pdmodel.font.{PDType1Font, PDType0Font}
 import scala.util.Using
 import java.io.Closeable
+import java.awt.Color
 
 object SimpleTable:
+  private val binggraeFileName = "BinggraeⅡ.ttf"
+
   def main(as: Array[String]): Unit = 
     // println("안녕? 여러분!")
     // pageWithHangle()
-    ioPageWithHangle().unsafeRunSync()
+    // ioPageWithHangle().unsafeRunSync()
+    // ioPageWithHangul2().unsafeRunSync()
+    ioSimpleTable().unsafeRunSync()
 
   def page() = 
     Using(PDDocument()) { pdoc => 
@@ -79,8 +84,53 @@ object SimpleTable:
         })
     }
 
+  def ioPageWithHangul2() =
+    mkResource(PDDocument()).use { pdoc =>
+      IO.pure(PDPage(PDRectangle.A4)).flatMap { p1 =>
+        pdoc.addPage(p1)
+        IO(getClass.getResourceAsStream("BinggraeⅡ.ttf")).flatMap { fstream =>
+          val font = PDType0Font.load(pdoc, fstream)
+          val cs = PDPageContentStream(pdoc, p1)
+          mkResource(cs).use({ cs =>
+            for 
+              _ <- IO.pure(println(font.getName))
+              _ = cs.beginText()
+              _ = cs.setFont(font, 20)
+              _ = cs.newLineAtOffset(100, 700)
+              _ = cs.showText("이봐!! 허서구!")            
+            yield ()
+          }).flatMap(_ => IO(pdoc.save("iohello2.pdf")))
+        }
+      }
+    }
+
   def ioSimpleTable() = 
-    Using(PDDocument()) { pdoc =>
-      val page = PDPage(PDRectangle.A4)
-      pdoc.addPage(page)
+    mkResource(PDDocument()).use { pdoc =>
+        IO.pure(PDPage(PDRectangle.A4)).flatMap { page =>
+          pdoc.addPage(page)
+          IO(getClass.getResourceAsStream(binggraeFileName)).flatMap { fstream =>
+              IO(PDType0Font.load(pdoc, fstream)).flatMap({ bfont =>
+                val contentStream = PDPageContentStream(pdoc, page)
+                mkResource(contentStream).use({ contentStream =>
+                val myTab = Table.builder().font(bfont).
+                  addColumnsOfWidth(200, 200).padding(2).
+                  addRow(Row.builder().
+                    add(TextCell.builder().text("일 일").borderWidth(4).borderColorLeft(Color.MAGENTA).backgroundColor(Color.WHITE).build()).
+                    add(TextCell.builder().text("하나 둘").borderWidth(0).backgroundColor(Color.YELLOW).build()).
+                    build()).
+                  addRow(Row.builder().padding(10).
+                    add(TextCell.builder().text("둘 하나").textColor(Color.RED).build()).
+                    add(TextCell.builder().text("이 이").borderWidthRight(1f).borderStyleRight(BorderStyle.DOTTED).horizontalAlignment(HorizontalAlignment.RIGHT).build()).
+                    build()).
+                  build()
+              
+                val tabDrawer = TableDrawer.builder().contentStream(contentStream).
+                  startX(20f).startY(page.getMediaBox().getUpperRightY - 20f).
+                  table(myTab).build()
+                
+                IO(tabDrawer.draw())
+              })
+            })
+          }
+        }.flatMap(_ => IO(pdoc.save("iotable.pdf")))
     }
